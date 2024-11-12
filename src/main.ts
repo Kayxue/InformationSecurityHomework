@@ -6,7 +6,7 @@ import {
 	sessionMiddleware,
 } from "jsr:@jcs224/hono-sessions";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { link } from "./Config.ts";
+import { link, sessionKey } from "./Config.ts";
 import { hash, Variant, verify, Version } from "@felix/argon2";
 import * as schema from "./drizzle/schema.ts";
 import { zValidator } from "@hono/zod-validator";
@@ -25,15 +25,14 @@ app.use(
 	"*",
 	sessionMiddleware({
 		store,
-		encryptionKey:
-			"ynaecmpa,xpooijfpandposjfmncfpsadjmncfpvmpdjamscioampvp;jsmcvfap[ijnmcvo[amjp[jmnca[mocnjfhgnfvvf0",
+		encryptionKey: sessionKey,
 		expireAfterSeconds: 60 * 60 * 24,
 		cookieOptions: {
 			sameSite: "Lax",
 			path: "/",
 			httpOnly: true,
 		},
-	}),
+	})
 );
 
 app.get("/", (c) => {
