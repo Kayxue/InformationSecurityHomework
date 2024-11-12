@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "strict": false
+  },
+  "imports": {
+    "@felix/argon2": "jsr:@felix/argon2@^2.0.2",
+    "@types/pg": "npm:@types/pg@^8.11.10",
+    "drizzle-kit": "npm:drizzle-kit@^0.28.0",
+    "drizzle-orm": "npm:drizzle-orm@^0.36.1",
+    "pg": "npm:pg@^8.13.1"
+  },
+  "fmt": {
+    "useTabs": true,
+    "indentWidth": 2
+  },
+  "tasks": {
+    "start": "deno run -A ./src/main.ts",
+    "dev": "deno run -A --watch ./src/main.ts",
+    "generate": "cd ./src/drizzle && bunx drizzle-kit generate",
+    "migrate": "cd ./src/drizzle && bunx drizzle-kit migrate",
+    "studio": "cd ./src/drizzle && bunx drizzle-kit studio"
+  }
+}
