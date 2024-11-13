@@ -13,6 +13,7 @@ import {
 } from "./ZodSchema.ts";
 import { eq, and, gt } from "drizzle-orm";
 import { requireLoginMiddleware } from "./Middlewares.ts";
+import { cors } from "hono/cors";
 
 const db = drizzle(link, { schema });
 
@@ -219,5 +220,7 @@ app.put(
 		return c.text("Updated password success");
 	}
 );
+
+app.use(cors());
 
 export default app;
