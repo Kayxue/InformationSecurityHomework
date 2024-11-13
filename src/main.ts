@@ -1,13 +1,9 @@
 import { Hono } from "hono";
-import { getConnInfo } from "hono/deno";
-import {
-	CookieStore,
-	Session,
-	sessionMiddleware,
-} from "jsr:@jcs224/hono-sessions";
+import { getConnInfo } from "hono/bun";
+import { CookieStore, Session, sessionMiddleware } from "hono-sessions";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { link, sessionKey } from "./Config.ts";
-import { hash, Variant, verify, Version } from "@felix/argon2";
+import { hash, verify } from "argon2";
 import * as schema from "./drizzle/schema.ts";
 import { zValidator } from "@hono/zod-validator";
 import {
@@ -16,6 +12,7 @@ import {
 	updatePasswordSchema,
 } from "./ZodSchema.ts";
 import { eq } from "drizzle-orm";
+import { requireLoginMiddleware } from "./Middlewares.ts";
 
 const db = drizzle(link, { schema });
 
@@ -36,7 +33,7 @@ app.use(
 			path: "/",
 			httpOnly: true,
 		},
-	}),
+	})
 );
 
 app.get("/", (c) => {
@@ -65,10 +62,8 @@ app.post("register", zValidator("json", registerSchema), async (c) => {
 		return c.json({ message: "Password not strong enough" }, 400);
 	}
 	const hashedPassword = await hash(password, {
-		variant: Variant.Argon2id,
-		version: Version.V13,
 		timeCost: 10,
-		lanes: 8,
+		parallelism: 8,
 	});
 	const data = await db
 		.insert(schema.users)
@@ -85,36 +80,55 @@ app.post("login", zValidator("json", loginSchema), async (c) => {
 	const { username, password } = await c.req.json();
 	const user = await db.query.users.findFirst({
 		where: eq(schema.users.username, username),
+		columns: {
+			passwordOld1: false,
+			passwordOld2: false,
+		},
 	});
-	if (!user) return c.text("Password or username incorrect", 401);
+	const logObj = {
+		username,
+		ip: getConnInfo(c).remote.address as string,
+		timestamp: new Date(),
+		result: false,
+	};
+	if (!user) {
+		await db.insert(schema.logs).values(logObj);
+		return c.text("Password or username incorrect", 401);
+	}
 	const passwordCorrect = await verify(user.password, password);
-	if (!passwordCorrect) return c.text("Password or username incorrect", 401);
+	if (!passwordCorrect) {
+		await db.insert(schema.logs).values(logObj);
+		return c.text("Password or username incorrect", 401);
+	}
+
+	logObj.result = true;
+	await db.insert(schema.logs).values(logObj);
+
 	const session = c.get("session");
 	const { password: _, ...leftUser } = user;
 	session.set("user", leftUser);
 	return c.json(leftUser);
 });
 
-app.get("logout", async (c) => {
+app.get("logout", requireLoginMiddleware, async (c) => {
 	const session = c.get("session");
 	session.deleteSession();
 	return c.text("You have been logout");
 });
 
-app.get("profile", async (c) => {
+app.get("profile", requireLoginMiddleware, async (c) => {
 	const session = c.get("session");
 	const user = session.get("user");
-	if (!user) return c.text("Unauthorized", 401);
 	return c.json(user);
 });
 
 app.put(
 	"updatePasswords",
+	requireLoginMiddleware,
 	zValidator("json", updatePasswordSchema),
 	async (c) => {
 		const session = c.get("session");
 		const user = session.get("user");
-		if (!user) return c.text("Unauthorized", 401);
 		const { newPassword } = await c.req.json();
 		if (
 			!(
@@ -128,17 +142,15 @@ app.put(
 		}
 		//TODO: Check whether password is same with the password the user set for latest three times
 		const hashedPassword = await hash(newPassword, {
-			variant: Variant.Argon2id,
-			version: Version.V13,
 			timeCost: 10,
-			lanes: 8,
+			parallelism: 8,
 		});
 		await db
 			.update(schema.users)
 			.set({ password: hashedPassword })
 			.where(eq(schema.users.id, user.id));
 		return c.text("Updated password success");
-	},
+	}
 );
 
-Deno.serve({ port: 3001 }, app.fetch);
+export default app

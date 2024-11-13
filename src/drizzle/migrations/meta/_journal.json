@@ -1,20 +1,20 @@
 {
-	"version": "7",
-	"dialect": "postgresql",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "7",
-			"when": 1731423756244,
-			"tag": "0000_yellow_gateway",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1731424121612,
-			"tag": "0001_glossy_deathstrike",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1731497510466,
+      "tag": "0000_closed_vampiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1731497997674,
+      "tag": "0001_complete_giant_girl",
+      "breakpoints": true
+    }
+  ]
 }
