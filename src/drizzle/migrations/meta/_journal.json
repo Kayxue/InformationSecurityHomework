@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1731497510466,
-      "tag": "0000_closed_vampiro",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1731497997674,
-      "tag": "0001_complete_giant_girl",
+      "when": 1731500108858,
+      "tag": "0000_strong_selene",
       "breakpoints": true
     }
   ]

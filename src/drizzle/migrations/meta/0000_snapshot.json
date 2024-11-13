@@ -1,5 +1,5 @@
 {
-  "id": "ed646ebd-7658-4ade-9b53-58b73cf51f5c",
+  "id": "aa55da76-fe4b-47ff-bd53-b223506b95d5",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -29,6 +29,18 @@
         "timestamp": {
           "name": "timestamp",
           "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "result": {
+          "name": "result",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "locked": {
+          "name": "locked",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": true
         }
@@ -63,6 +75,20 @@
           "primaryKey": false,
           "notNull": true
         },
+        "passwordOld1": {
+          "name": "passwordOld1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "passwordOld2": {
+          "name": "passwordOld2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -73,7 +99,15 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "users_username_unique": {
+          "name": "users_username_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "username"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

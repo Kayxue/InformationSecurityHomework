@@ -11,7 +11,7 @@ import {
 	registerSchema,
 	updatePasswordSchema,
 } from "./ZodSchema.ts";
-import { eq } from "drizzle-orm";
+import { eq, and, gt } from "drizzle-orm";
 import { requireLoginMiddleware } from "./Middlewares.ts";
 
 const db = drizzle(link, { schema });
@@ -59,25 +59,52 @@ app.post("register", zValidator("json", registerSchema), async (c) => {
 			password.length >= 8
 		)
 	) {
-		return c.json({ message: "Password not strong enough" }, 400);
+		return c.text("Password not strong enough", 400);
 	}
 	const hashedPassword = await hash(password, {
 		timeCost: 10,
 		parallelism: 8,
 	});
-	const data = await db
-		.insert(schema.users)
-		.values({
-			username,
-			password: hashedPassword,
-			name,
-		})
-		.returning();
-	return c.json(data);
+	try {
+		const data = await db
+			.insert(schema.users)
+			.values({
+				username,
+				password: hashedPassword,
+				name,
+			})
+			.returning();
+		return c.json(data);
+	} catch (e) {
+		return c.text("User insertion failed", 400);
+	}
 });
 
 app.post("login", zValidator("json", loginSchema), async (c) => {
 	const { username, password } = await c.req.json();
+	const logObj = {
+		username,
+		ip: getConnInfo(c).remote.address as string,
+		timestamp: new Date(),
+		result: false,
+		locked: false,
+	};
+
+	//Check whether the user is locked
+	const fiveMinutesAgoDate = new Date(Date.now() - 5 * 60000);
+	const locked = await db.query.logs.findMany({
+		where: and(
+			gt(schema.logs.timestamp, fiveMinutesAgoDate),
+			eq(schema.logs.locked, true)
+		),
+	});
+	if (locked.length) {
+		logObj.locked = true;
+		await db.insert(schema.logs).values(logObj);
+		return c.text("You have been locked for five minutes", 400);
+	}
+
+	//Find user
 	const user = await db.query.users.findFirst({
 		where: eq(schema.users.username, username),
 		columns: {
@@ -85,20 +112,42 @@ app.post("login", zValidator("json", loginSchema), async (c) => {
 			passwordOld2: false,
 		},
 	});
-	const logObj = {
-		username,
-		ip: getConnInfo(c).remote.address as string,
-		timestamp: new Date(),
-		result: false,
-	};
 	if (!user) {
+		const recentLoginData = await db.query.logs.findMany({
+			where: and(
+				gt(schema.logs.timestamp, fiveMinutesAgoDate),
+				eq(schema.logs.result, false)
+			),
+		});
+		if (recentLoginData.length >= 2) logObj.locked = true;
+
 		await db.insert(schema.logs).values(logObj);
-		return c.text("Password or username incorrect", 401);
+		return c.text(
+			`Password or username incorrect${
+				logObj.locked ? ", and You have been locked." : ""
+			}`,
+			401
+		);
 	}
+
+	//Check password
 	const passwordCorrect = await verify(user.password, password);
 	if (!passwordCorrect) {
+		const recentLoginData = await db.query.logs.findMany({
+			where: and(
+				gt(schema.logs.timestamp, fiveMinutesAgoDate),
+				eq(schema.logs.result, false)
+			),
+		});
+		if (recentLoginData.length >= 2) logObj.locked = true;
+
 		await db.insert(schema.logs).values(logObj);
-		return c.text("Password or username incorrect", 401);
+		return c.text(
+			`Password or username incorrect${
+				logObj.locked ? ", and You have been locked." : ""
+			}`,
+			401
+		);
 	}
 
 	logObj.result = true;
@@ -138,19 +187,35 @@ app.put(
 				newPassword.length >= 8
 			)
 		) {
-			return c.json({ message: "Password not strong enough" }, 400);
+			return c.text("Password not strong enough", 400);
 		}
-		//TODO: Check whether password is same with the password the user set for latest three times
+
+		const userObj = await db.query.users.findFirst({
+			where: eq(schema.users.id, user.id),
+		});
+		if (!userObj) return;
+		if (
+			(await verify(userObj.password, newPassword)) ||
+			(await verify(userObj.passwordOld1, newPassword)) ||
+			(await verify(userObj.passwordOld2, newPassword))
+		)
+			return c.text("Password can't be your latest 3 passwords", 400);
+
 		const hashedPassword = await hash(newPassword, {
 			timeCost: 10,
 			parallelism: 8,
 		});
+
 		await db
 			.update(schema.users)
-			.set({ password: hashedPassword })
+			.set({
+				passwordOld2: userObj.passwordOld1,
+				passwordOld1: userObj.password,
+				password: hashedPassword,
+			})
 			.where(eq(schema.users.id, user.id));
 		return c.text("Updated password success");
 	}
 );
 
-export default app
+export default app;
