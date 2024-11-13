@@ -10,7 +10,11 @@ import { link, sessionKey } from "./Config.ts";
 import { hash, Variant, verify, Version } from "@felix/argon2";
 import * as schema from "./drizzle/schema.ts";
 import { zValidator } from "@hono/zod-validator";
-import { loginSchema, registerSchema } from "./ZodSchema.ts";
+import {
+	loginSchema,
+	registerSchema,
+	updatePasswordSchema,
+} from "./ZodSchema.ts";
 import { eq } from "drizzle-orm";
 
 const db = drizzle(link, { schema });
@@ -32,7 +36,7 @@ app.use(
 			path: "/",
 			httpOnly: true,
 		},
-	})
+	}),
 );
 
 app.get("/", (c) => {
@@ -103,5 +107,38 @@ app.get("profile", async (c) => {
 	if (!user) return c.text("Unauthorized", 401);
 	return c.json(user);
 });
+
+app.put(
+	"updatePasswords",
+	zValidator("json", updatePasswordSchema),
+	async (c) => {
+		const session = c.get("session");
+		const user = session.get("user");
+		if (!user) return c.text("Unauthorized", 401);
+		const { newPassword } = await c.req.json();
+		if (
+			!(
+				/[A-Z]/.test(newPassword) &&
+				/[a-z]/.test(newPassword) &&
+				/[0-9]/.test(newPassword) &&
+				newPassword.length >= 8
+			)
+		) {
+			return c.json({ message: "Password not strong enough" }, 400);
+		}
+		//TODO: Check whether password is same with the password the user set for latest three times
+		const hashedPassword = await hash(newPassword, {
+			variant: Variant.Argon2id,
+			version: Version.V13,
+			timeCost: 10,
+			lanes: 8,
+		});
+		await db
+			.update(schema.users)
+			.set({ password: hashedPassword })
+			.where(eq(schema.users.id, user.id));
+		return c.text("Updated password success");
+	},
+);
 
 Deno.serve({ port: 3001 }, app.fetch);
