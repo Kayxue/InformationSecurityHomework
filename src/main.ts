@@ -64,7 +64,7 @@ app.post("register", zValidator("json", registerSchema), async (c) => {
 	}
 	const hashedPassword = await hash(password, {
 		timeCost: 10,
-		parallelism: 8,
+		parallelism: 10,
 	});
 	try {
 		const data = await db
@@ -206,7 +206,7 @@ app.put(
 
 		const hashedPassword = await hash(newPassword, {
 			timeCost: 10,
-			parallelism: 8,
+			parallelism: 10,
 		});
 
 		await db
