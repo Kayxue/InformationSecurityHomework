@@ -196,8 +196,10 @@ app.put(
 		if (!userObj) return;
 		if (
 			(await verify(userObj.password, newPassword)) ||
-			(await verify(userObj.passwordOld1, newPassword)) ||
-			(await verify(userObj.passwordOld2, newPassword))
+			(userObj.passwordOld1.length &&
+				(await verify(userObj.passwordOld1, newPassword))) ||
+			(userObj.passwordOld2.length &&
+				(await verify(userObj.passwordOld2, newPassword)))
 		)
 			return c.text("Password can't be your latest 3 passwords", 400);
 
