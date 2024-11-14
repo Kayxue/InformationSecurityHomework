@@ -52,6 +52,10 @@ app.post("register", zValidator("json", registerSchema), async (c) => {
 		name: string;
 	} = await c.req.json();
 
+	if(/[^A-Za-z0-9]/.test(password) || /[^A-Za-z0-9]/.test(username)){
+		return c.text("Password can't contain special charactor", 400);
+	}
+
 	if (
 		!(
 			/[A-Z]/.test(password) &&
@@ -104,6 +108,10 @@ app.post("login", zValidator("json", loginSchema), async (c) => {
 		logObj.locked = true;
 		await db.insert(schema.logs).values(logObj);
 		return c.text("You have been locked for five minutes", 400);
+	}
+
+	if(/[^A-Za-z0-9]/.test(password) || /[^A-Za-z0-9]/.test(username)){
+		return c.text("Password can't contain special charactor", 400);
 	}
 
 	//Find user
@@ -176,13 +184,16 @@ app.get("profile", requireLoginMiddleware, async (c) => {
 });
 
 app.put(
-	"updatePasswords",
+	"updatePassword",
 	requireLoginMiddleware,
 	zValidator("json", updatePasswordSchema),
 	async (c) => {
 		const session = c.get("session");
 		const user = session.get("user");
 		const { newPassword } = await c.req.json();
+		if(/[^A-Za-z0-9]/.test(newPassword)){
+			return c.text("Password can't contain special charactor", 400);
+		}
 		if (
 			!(
 				/[A-Z]/.test(newPassword) &&
