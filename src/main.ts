@@ -23,6 +23,8 @@ const app = new Hono<{
 
 const store = new CookieStore();
 
+app.use("*", cors({ origin: "http://localhost:3000", credentials: true }));
+
 app.use(
 	"*",
 	sessionMiddleware({
@@ -30,8 +32,6 @@ app.use(
 		encryptionKey: sessionKey,
 		expireAfterSeconds: 60 * 60 * 24,
 		cookieOptions: {
-			sameSite: "Lax",
-			path: "/",
 			httpOnly: true,
 		},
 	})
@@ -95,6 +95,7 @@ app.post("login", zValidator("json", loginSchema), async (c) => {
 	const fiveMinutesAgoDate = new Date(Date.now() - 5 * 60000);
 	const locked = await db.query.logs.findMany({
 		where: and(
+			eq(schema.logs.username,username),
 			gt(schema.logs.timestamp, fiveMinutesAgoDate),
 			eq(schema.logs.locked, true)
 		),
@@ -116,6 +117,7 @@ app.post("login", zValidator("json", loginSchema), async (c) => {
 	if (!user) {
 		const recentLoginData = await db.query.logs.findMany({
 			where: and(
+				eq(schema.logs.username,username),
 				gt(schema.logs.timestamp, fiveMinutesAgoDate),
 				eq(schema.logs.result, false)
 			),
@@ -136,6 +138,7 @@ app.post("login", zValidator("json", loginSchema), async (c) => {
 	if (!passwordCorrect) {
 		const recentLoginData = await db.query.logs.findMany({
 			where: and(
+				eq(schema.logs.username,username),
 				gt(schema.logs.timestamp, fiveMinutesAgoDate),
 				eq(schema.logs.result, false)
 			),
@@ -221,6 +224,7 @@ app.put(
 	}
 );
 
-app.use(cors());
-
-export default app;
+export default {
+	port: 3001,
+	fetch: app.fetch,
+};
